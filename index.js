@@ -33,11 +33,11 @@ function verifySignature(payload, signature) {
 }
 
 // New GET endpoint
-app.get('/get', (req, res) => {
+app.get('/webhook', (req, res) => {
     res.send('Webhook accessible');
   });
 
-app.post('/webhook-endpoint', async (req, res) => {
+app.post('/webhook', async (req, res) => {
   const signature = req.headers['x-sellapp-signature'];
   const payload = JSON.stringify(req.body);
 
