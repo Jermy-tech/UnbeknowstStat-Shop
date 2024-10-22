@@ -25,7 +25,7 @@ const PLAN_MAP = {
 
 // Verify webhook authenticity
 function verifySignature(payload, signature) {
-    const hmac = crypto.createHmac('sha256', SELL_APP_SECRET);
+    const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
     hmac.update(JSON.stringify(payload));
     return hmac.digest('hex') === signature;
 }
@@ -33,7 +33,25 @@ function verifySignature(payload, signature) {
 // New GET endpoint
 app.get('/get', (req, res) => {
     res.send('Webhook accessible');
-  });
+});
+
+// Connect to MongoDB once and handle potential connection errors
+async function connectToMongo() {
+    try {
+        await client.connect();
+        console.log('Connected to MongoDB');
+        // Check if the database is reachable
+        const db = client.db(dbName);
+        await db.command({ ping: 1 }); // Ping command to check connection
+        console.log('MongoDB connection is alive');
+    } catch (err) {
+        console.error('Failed to connect to MongoDB', err);
+        process.exit(1); // Exit process if MongoDB connection fails
+    }
+}
+
+// Call the connect function on startup
+connectToMongo();
 
 app.post('/webhook', async (req, res) => {
   const signature = req.headers['x-sell-signature'];
@@ -54,7 +72,6 @@ app.post('/webhook', async (req, res) => {
   const planLevel = PLAN_MAP[productName] || 0;  // Default to Free if not found
 
   try {
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection(collectionName);
 
@@ -74,8 +91,6 @@ app.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('Error updating user plan:', error);
     res.status(500).send('Internal Server Error');
-  } finally {
-    await client.close();
   }
 });
 
