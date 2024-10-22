@@ -1,10 +1,10 @@
 const express = require('express');
 const crypto = require('crypto');
 const { MongoClient } = require('mongodb');
-require('dotenv').config(); // Load environment variables from .env
+require('dotenv').config();  // Load environment variables from .env
 
 const app = express();
-app.use(express.json({ limit: '1mb' })); // Increased body size limit if needed
+app.use(express.json());
 
 // MongoDB connection settings from .env
 const uri = process.env.MONGODB_URI;
@@ -17,20 +17,17 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 // Map product names to plan levels
 const PLAN_MAP = {
-  'Free': 0,
-  'Starter': 1,
-  'Pro': 2,
-  'Enterprise': 3
+    'Free': 0,
+    'Starter': 1,
+    'Pro': 2,
+    'Enterprise': 3
 };
 
 // Verify webhook authenticity
 function verifySignature(payload, signature) {
-    const computedSignature = crypto
-        .createHmac('sha256', WEBHOOK_SECRET)
-        .update(payload) // Use raw payload
-        .digest('hex');
-
-    return crypto.timingSafeEqual(Buffer.from(computedSignature), Buffer.from(signature));
+    const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
+    hmac.update(JSON.stringify(payload));
+    return hmac.digest('hex') === signature;
 }
 
 // New GET endpoint
@@ -38,18 +35,34 @@ app.get('/get', (req, res) => {
     res.send('Webhook accessible');
 });
 
+// Connect to MongoDB once and handle potential connection errors
+async function connectToMongo() {
+    try {
+        await client.connect();
+        console.log('Connected to MongoDB');
+        // Check if the database is reachable
+        const db = client.db(dbName);
+        await db.command({ ping: 1 }); // Ping command to check connection
+        console.log('MongoDB connection is alive');
+    } catch (err) {
+        console.error('Failed to connect to MongoDB', err);
+        process.exit(1); // Exit process if MongoDB connection fails
+    }
+}
+
+// Call the connect function on startup
+connectToMongo();
+
 app.post('/webhook', async (req, res) => {
-    const signature = req.headers['HTTP_SIGNATURE'];
-    
-    // Read the raw request body as a string
-    const rawPayload = JSON.stringify(req.body);
+    console.log('Incoming request:', {
+        method: req.method,
+        headers: req.headers,
+        body: req.body
+    });
 
-    // Log for debugging
-    console.log('Received payload:', rawPayload);
-    console.log('Received signature:', signature);
+    const signature = req.headers['x-sell-signature'];
 
-    // Verify signature
-    if (!verifySignature(rawPayload, signature)) {
+    if (!verifySignature(req.body, signature)) {
         return res.status(400).send('Invalid signature');
     }
 
@@ -62,10 +75,9 @@ app.post('/webhook', async (req, res) => {
 
     const userEmail = data.payment.gateway.data.customer_email;
     const productName = data.product_variants[0].product_title;
-    const planLevel = PLAN_MAP[productName] || 0; // Default to Free if not found
+    const planLevel = PLAN_MAP[productName] || 0;  // Default to Free if not found
 
     try {
-        await client.connect();
         const db = client.db(dbName);
         const collection = db.collection(collectionName);
 
@@ -85,8 +97,6 @@ app.post('/webhook', async (req, res) => {
     } catch (error) {
         console.error('Error updating user plan:', error);
         res.status(500).send('Internal Server Error');
-    } finally {
-        await client.close();
     }
 });
 
