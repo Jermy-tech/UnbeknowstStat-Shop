@@ -23,14 +23,19 @@ const PLAN_MAP = {
     'Enterprise': 3
 };
 
-// Verify Sell.app webhook signature
+// Verify webhook authenticity
 function verifySignature(payload, signature) {
-    const hash = crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
-      .update(payload)
-      .digest('hex');
-    return hash === signature;
-  }  
+    try {
+        // Ensure that the payload is properly serialized to JSON
+        const payloadString = JSON.stringify(payload, Object.keys(payload).sort()); // Sort keys for consistency
+        const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
+        hmac.update(payloadString);
+        return hmac.digest('hex') === signature;
+    } catch (error) {
+        console.error('Error while verifying signature:', error);
+        return false; // Return false on any error
+    }
+}
 
 // New GET endpoint
 app.get('/get', (req, res) => {
@@ -62,7 +67,7 @@ app.post('/webhook', async (req, res) => {
         body: req.body
     });
 
-    const signature = req.headers['signature'];
+    const signature = req.headers['signature']; // Change this to 'x-sell-signature' if that's the correct header
 
     if (!verifySignature(req.body, signature)) {
         return res.status(400).send('Invalid signature');
