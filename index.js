@@ -15,6 +15,12 @@ const collectionName = process.env.COLLECTION_NAME;
 // Webhook secret from .env
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
+mongoose.connect(mongoAtlasUri, { serverSelectionTimeoutMS: 3000 });
+const db = mongoose.connection;
+db.on('error', (error) => {
+    console.error('MongoDB connection error:', error);
+});
+
 // Map product names to plan levels
 const PLAN_MAP = {
     'Free': 0,
@@ -41,24 +47,6 @@ function verifySignature(payload, signature) {
 app.get('/get', (req, res) => {
     res.send('Webhook accessible');
 });
-
-// Connect to MongoDB once and handle potential connection errors
-async function connectToMongo() {
-    try {
-        await client.connect();
-        console.log('Connected to MongoDB');
-        // Check if the database is reachable
-        const db = client.db(dbName);
-        await db.command({ ping: 1 }); // Ping command to check connection
-        console.log('MongoDB connection is alive');
-    } catch (err) {
-        console.error('Failed to connect to MongoDB', err);
-        process.exit(1); // Exit process if MongoDB connection fails
-    }
-}
-
-// Call the connect function on startup
-connectToMongo();
 
 app.post('/webhook', async (req, res) => {
     console.log('Incoming request:', {
