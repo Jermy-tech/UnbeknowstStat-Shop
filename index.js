@@ -37,7 +37,7 @@ app.get('/get', (req, res) => {
     res.send('Webhook accessible');
   });
 
-app.post('/webhook-endpoint', async (req, res) => {
+app.post('/webhook', async (req, res) => {
   const signature = req.headers['HTTP_SIGNATURE'];
   const payload = JSON.stringify(req.body);
 
