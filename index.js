@@ -23,12 +23,14 @@ const PLAN_MAP = {
     'Enterprise': 3
 };
 
-// Verify webhook authenticity
+// Verify Sell.app webhook signature
 function verifySignature(payload, signature) {
-    const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
-    hmac.update(JSON.stringify(payload));
-    return hmac.digest('hex') === signature;
-}
+    const hash = crypto
+      .createHmac('sha256', WEBHOOK_SECRET)
+      .update(payload)
+      .digest('hex');
+    return hash === signature;
+  }  
 
 // New GET endpoint
 app.get('/get', (req, res) => {
