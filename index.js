@@ -39,7 +39,7 @@ app.get('/get', (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-    const signature = req.headers['x-sell-signature'];
+    const signature = req.headers['HTTP_SIGNATURE'];
     
     // Read the raw request body as a string
     const rawPayload = JSON.stringify(req.body);
