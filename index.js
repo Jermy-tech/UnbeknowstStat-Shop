@@ -60,7 +60,7 @@ app.post('/webhook', async (req, res) => {
         body: req.body
     });
 
-    const signature = req.headers['x-sell-signature'];
+    const signature = req.headers['signature'];
 
     if (!verifySignature(req.body, signature)) {
         return res.status(400).send('Invalid signature');
