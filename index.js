@@ -23,13 +23,11 @@ const PLAN_MAP = {
   'Enterprise': 3
 };
 
-// Verify Sell.app webhook signature
+// Verify webhook authenticity
 function verifySignature(payload, signature) {
-  const hash = crypto
-    .createHmac('sha256', WEBHOOK_SECRET)
-    .update(payload)
-    .digest('hex');
-  return hash === signature;
+    const hmac = crypto.createHmac('sha256', SELL_APP_SECRET);
+    hmac.update(JSON.stringify(payload));
+    return hmac.digest('hex') === signature;
 }
 
 // New GET endpoint
@@ -38,11 +36,9 @@ app.get('/get', (req, res) => {
   });
 
 app.post('/webhook', async (req, res) => {
-  const signature = req.headers['HTTP_SIGNATURE'];
-  const payload = JSON.stringify(req.body);
+  const signature = req.headers['x-sell-signature'];
 
-  // Verify webhook signature
-  if (!verifySignature(payload, signature)) {
+  if (!verifySignature(req.body, signature)) {
     return res.status(400).send('Invalid signature');
   }
 
