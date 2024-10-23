@@ -55,12 +55,6 @@ app.post('/webhook', async (req, res) => {
         body: req.body
     });
 
-    const signature = req.headers['signature']; // Change this to 'x-sell-signature' if that's the correct header
-
-    if (!verifySignature(req.body, signature)) {
-        return res.status(400).send('Invalid signature');
-    }
-
     const { event, data } = req.body;
 
     // Only process 'order.created' events
