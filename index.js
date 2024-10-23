@@ -1,25 +1,30 @@
 const express = require('express');
 const crypto = require('crypto');
-const { MongoClient } = require('mongodb');
+const mongoose = require('mongoose'); // Ensure Mongoose is imported
 require('dotenv').config();  // Load environment variables from .env
 
 const app = express();
 app.use(express.json());
 
 // MongoDB connection settings from .env
-const uri = process.env.MONGODB_URI;
-const client = new MongoClient(uri);
-const dbName = process.env.DB_NAME;
-const collectionName = process.env.COLLECTION_NAME;
+const mongoAtlasUri = process.env.MONGODB_URI; // Ensure this variable is defined in .env
+const dbName = process.env.DB_NAME; // Ensure this variable is defined in .env
 
 // Webhook secret from .env
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET; // Ensure this variable is defined in .env
 
-mongoose.connect(mongoAtlasUri, { serverSelectionTimeoutMS: 3000 });
-const db = mongoose.connection;
-db.on('error', (error) => {
-    console.error('MongoDB connection error:', error);
+// Connect to MongoDB using Mongoose
+mongoose.connect(mongoAtlasUri, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB connected successfully'))
+    .catch(error => console.error('MongoDB connection error:', error));
+
+// Define a Mongoose schema and model
+const userSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true },
+    plan: { type: Number, default: 0 } // Assuming plan is an integer
 });
+
+const User = mongoose.model('User', userSchema);
 
 // Map product names to plan levels
 const PLAN_MAP = {
@@ -67,21 +72,19 @@ app.post('/webhook', async (req, res) => {
     const planLevel = PLAN_MAP[productName] || 0;  // Default to Free if not found
 
     try {
-        const db = client.db(dbName);
-        const collection = db.collection(collectionName);
-
         // Find the user by email and update their plan
-        const result = await collection.updateOne(
+        const result = await User.updateOne(
             { email: userEmail },
-            { $set: { plan: planLevel } }
+            { $set: { plan: planLevel } },
+            { new: true, upsert: true } // Create the user if not found
         );
 
         if (result.matchedCount === 0) {
-            console.log(`User with email ${userEmail} not found.`);
-            return res.status(404).send('User not found');
+            console.log(`User with email ${userEmail} not found and created.`);
+        } else {
+            console.log(`User ${userEmail} upgraded to plan level ${planLevel}.`);
         }
 
-        console.log(`User ${userEmail} upgraded to plan level ${planLevel}.`);
         res.status(200).send('Plan upgraded successfully');
     } catch (error) {
         console.error('Error updating user plan:', error);
